@@ -19,7 +19,7 @@ const telegram = new Telegram(process.env.TELEGRAM_TOKEN);
 let session = "";
 
 const app = express()
-const port = 3000
+const PORT = process.env.PORT || 3000;
 
 main = async () => {
   telegram.sendMessage(
@@ -215,6 +215,6 @@ ping = () => {
 
 app.get('/', (req, res) => res.send('Hello World!'))
 
-app.listen(port, () => console.log(`BBDC bot listening at http://0.0.0.0:${port}`))
+app.listen(PORT, () => console.log(`BBDC bot listening on port:${port}`))
 
 main();
