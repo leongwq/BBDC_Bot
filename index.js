@@ -215,6 +215,6 @@ ping = () => {
 
 app.get('/', (req, res) => res.send('Hello World!'))
 
-app.listen(PORT, () => console.log(`BBDC bot listening on port:${port}`))
+app.listen(PORT, () => console.log(`BBDC bot listening on port:${PORT}`))
 
 main();
