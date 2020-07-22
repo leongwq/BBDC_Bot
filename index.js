@@ -33,6 +33,7 @@ main = async () => {
 scheduleJob =  () => {
   // Check for auto book
   cron.schedule('*/15 * * * *', async () => {
+    ping(); // For heroku
     const slots = await getSlots(session, populatePreference());
     // Check for auto book
     autoBook(slots);
