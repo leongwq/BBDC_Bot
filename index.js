@@ -12,7 +12,6 @@ const BBDC_URL = "http://www.bbdc.sg/bbdc/bbdc_web/newheader.asp";
 const BBDC_LOGIN_URL = "http://www.bbdc.sg/bbdc/bbdc_web/header2.asp";
 const BBDC_SLOTS_LISTING_URL = "http://www.bbdc.sg/bbdc/b-3c-pLessonBooking1.asp";
 const BBDC_BOOKING_URL = "https://www.bbdc.sg/bbdc/b-3c-pLessonBookingDetails.asp";
-var http = require('http');
 
 // const bot = new Telegraf(process.env.TELEGRAM_TOKEN);
 const Telegram = require("telegraf/telegram");
