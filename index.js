@@ -1,5 +1,5 @@
 require("dotenv").config();
-const http = require('http');
+const express = require('express')
 const axios = require("axios");
 const qs = require("querystring");
 const cheerio = require("cheerio");
@@ -17,6 +17,9 @@ const BBDC_BOOKING_URL = "https://www.bbdc.sg/bbdc/b-3c-pLessonBookingDetails.as
 const Telegram = require("telegraf/telegram");
 const telegram = new Telegram(process.env.TELEGRAM_TOKEN);
 let session = "";
+
+const app = express()
+const port = 3000
 
 main = async () => {
   telegram.sendMessage(
@@ -210,9 +213,8 @@ ping = () => {
   axios(process.env.HEROKU_URL);
 }
 
-http.createServer(function (req, res) {
-  res.writeHead(200, {'Content-Type': 'text/plain'});
-  res.end('Alive!');
-}).listen(8000);
+app.get('/', (req, res) => res.send('Hello World!'))
+
+app.listen(port, () => console.log(`BBDC bot listening at http://0.0.0.0:${port}`))
 
 main();
