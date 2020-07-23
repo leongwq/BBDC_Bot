@@ -42,7 +42,8 @@ scheduleJob = () => {
     autoBook(slots);
     // Adds to history
     slotHistory = {
-      ...slots
+      ... slots,
+      ... slotHistory
     };
   });
 };
