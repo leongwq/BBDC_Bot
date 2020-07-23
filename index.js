@@ -3,19 +3,18 @@ const express = require('express')
 const axios = require("axios");
 const qs = require("querystring");
 const cheerio = require("cheerio");
-const {
-  Telegraf
-} = require("telegraf");
 const cron = require('node-cron');
 const moment = require('moment-timezone');
 const BBDC_URL = "http://www.bbdc.sg/bbdc/bbdc_web/newheader.asp";
 const BBDC_LOGIN_URL = "http://www.bbdc.sg/bbdc/bbdc_web/header2.asp";
 const BBDC_SLOTS_LISTING_URL = "http://www.bbdc.sg/bbdc/b-3c-pLessonBooking1.asp";
-const BBDC_BOOKING_URL = "https://www.bbdc.sg/bbdc/b-3c-pLessonBookingDetails.asp";
+const BBDC_BOOKING_URL = "http://www.bbdc.sg/bbdc/b-3c-pLessonBookingDetails.asp";
 
 const Telegram = require("telegraf/telegram");
 const telegram = new Telegram(process.env.TELEGRAM_TOKEN);
-let session = "";
+let loginSession;
+// Stores all slots discovered here so that same slot wont be notified everytime the bot checks
+let slotHistory = {};
 
 const app = express()
 const PORT = process.env.PORT || 3000;
@@ -32,15 +31,19 @@ main = async () => {
 
 scheduleJob = () => {
   // Check for auto book
-  cron.schedule('*/15 * * * *', async () => {
+  cron.schedule('*/10 * * * *', async () => {
     ping(); // For heroku
     const [cookie] = await getCookie();
-    [session] = cookie.split(";");
+    [loginSession] = cookie.split(";");
     await login();
-    const slots = await getSlots(session, populatePreference());
+    const slots = await getSlots(populatePreference());
+    sendPrettifiedSlotsMessage(slots);
     // Check for auto book
     autoBook(slots);
-    sendPrettifiedSlotsMessage(slots);
+    // Adds to history
+    slotHistory = {
+      ...slots
+    };
   });
 };
 
@@ -64,7 +67,7 @@ login = async () => {
     const config = {
       headers: {
         "Content-Type": "application/x-www-form-urlencoded",
-        Cookie: session,
+        Cookie: loginSession,
       },
     };
     await axios.post(BBDC_LOGIN_URL, qs.stringify(data), config);
@@ -75,11 +78,12 @@ login = async () => {
 
 getSlots = async (preference) => {
   console.log("Checking slots");
+
   try {
     const config = {
       headers: {
         "Content-Type": "application/x-www-form-urlencoded",
-        Cookie: session,
+        Cookie: loginSession,
       },
     };
     const response = await axios.post(
@@ -103,15 +107,22 @@ createBooking = async (slotID) => {
     const config = {
       headers: {
         "Content-Type": "application/x-www-form-urlencoded",
-        Cookie: session,
+        Cookie: loginSession,
       },
     };
     const response = await axios.post(
       BBDC_BOOKING_URL,
-      qs.stringify(preference),
+      qs.stringify(data),
       config
     );
-    return parseSlotsListing(response.data);
+    const $ = cheerio.load(response.data);
+    let errorMessage = $(
+      "body > table > tbody > tr > td:nth-child(2) > form > table > tbody > tr:nth-child(1) > td > table > tbody > tr:nth-child(3) > td.errtblmsg"
+    )
+    if (errorMessage.is(".errtblmsg")) {
+      telegram.sendMessage(process.env.TELEGRAM_CHAT_ID, errorMessage.text());
+    }
+
   } catch (error) {
     console.error(error);
   }
@@ -122,10 +133,9 @@ autoBook = async (slots) => {
   for (slot in slots) {
     const dateStr = (slots[slot]["date"]).split(" ");
     const date = moment(dateStr[0], "D/M/YYYY");
-    console.log('%c%s', 'color: #bfffc8', date);
     if (date.diff(today, 'days') >= 3) {
       createBooking(slot);
-      telegram.sendMessage(process.env.TELEGRAM_CHAT_ID, "Booking slot for " + slots[slot]["date"] + ". From " + slots[slot]["start"] + " to " + slots[slot]["date"] + ". Please verify booking");
+      telegram.sendMessage(process.env.TELEGRAM_CHAT_ID, "Booking slot for " + slots[slot]["date"] + ". From " + slots[slot]["start"] + " to " + slots[slot]["end"] + ". Please verify booking");
     }
   }
 };
@@ -174,13 +184,19 @@ parseSlotsListing = (data) => {
     const start = slotInfo[2][1];
     const end = slotInfo[3][1];
 
-    let informationStr = `New slot found on ${date}, Session: ${session} (${start} - ${end})`;
-    slots[slotID] = {
-      info: informationStr,
-      date: date,
-      session: session
-    };
+    if (!(slotID in slotHistory)) {
+      let informationStr = `New slot found on ${date}, Session: ${session} (${start} - ${end})`;
+      slots[slotID] = {
+        info: informationStr,
+        date: date,
+        start: start,
+        end: end,
+        session: session
+      };
+    }
+
   });
+
   return slots;
 };
 
@@ -209,7 +225,7 @@ deleteMessage = (messageID) => {
 };
 
 ping = () => {
-  axios(process.env.HEROKU_URL);
+  axios.get(process.env.HEROKU_URL);
 }
 
 app.get('/', (req, res) => res.send('Hello World!'))
